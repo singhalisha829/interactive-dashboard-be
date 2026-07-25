@@ -7,12 +7,12 @@ const login = async (req, res) =>{
         const {email, password} = req.body;
         const user = await User.findOne({email});
         if(!user){
-            return res.status(400).json({status:"success",message:"User not found."})
+            return res.status(400).json({success:false,message:"User not found."})
         }
 
         const isPasswordValid = await bcrypt.compare(password,user.password);
         if(!isPasswordValid){
-            return res.status(401).json({status:"success",message:"Invalid credentials"})
+            return res.status(401).json({success:false,message:"Invalid credentials"})
         }
 
         const accessToken = generateAccessToken(user);
@@ -42,8 +42,29 @@ const login = async (req, res) =>{
         },
         });
     }catch(err){
-        res.status(500).json({status:"success",message:err.message});
+        res.status(500).json({success:false,message:err.message});
     }
 }
 
-export { login};
+const register = async (req,res) =>{
+    try{
+        const {name,email,password} = req.body;
+        const isUserExist = await User.findOne({email});
+        if(isUserExist){
+            return res.status(400).json({success:false,message:"User already exists"})
+        }
+        const hashedPassword = await bcrypt.hash(password,10);
+        const user = new User({
+            name,
+            email,
+            password:hashedPassword,
+        });
+        await user.save();
+        res.status(201).json({success:true,message:"User registered successfully"});
+    }
+    catch(err){
+        res.status(500).json({success:false,message:err.message});
+    }
+}
+
+export { login, register};
