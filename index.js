@@ -12,6 +12,8 @@ app.use(
 );
 app.use(express.json());
 
+app.get('/health', (req, res) => res.status(200).send('ok'));
+
 app.use('/api/auth',authRoutes);
 
 connectDB()
