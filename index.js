@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import connectDB from "./src/config/db.js";
 import authRoutes from "./src/routes/authRoutes.js";
 import salesRoutes from "./src/routes/salesRoutes.js";
@@ -13,6 +14,7 @@ app.use(
   }),
 );
 app.use(express.json());
+app.use(cookieParser());
 
 app.get("/health", (req, res) => res.status(200).send("ok"));
 

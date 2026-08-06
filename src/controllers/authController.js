@@ -1,3 +1,4 @@
+import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import bcrypt from "bcrypt";
 import { generateAccessToken, generateRefreshToken } from "../utils/tokenUtils.js";
@@ -67,4 +68,77 @@ const register = async (req,res) =>{
     }
 }
 
-export { login, register};
+const refresh = async (req, res) => {
+    try{
+        const token = req.cookies.refreshToken;
+        if(!token){
+            return res.status(401).json({success:false,message:"No refresh token provided"})
+        }
+
+        let decoded;
+        try{
+            decoded = jwt.verify(token, process.env.REFRESH_SECRET);
+        }catch(err){
+            return res.status(401).json({success:false,message:"Invalid or expired refresh token"})
+        }
+
+        const user = await User.findById(decoded.id);
+        // Reject if the token doesn't match what's stored, e.g. it was already
+        // rotated away or the user logged out - stops a stolen refresh token
+        // from being replayed after that.
+        if(!user || user.refreshToken !== token){
+            return res.status(401).json({success:false,message:"Refresh token is no longer valid"})
+        }
+
+        const accessToken = generateAccessToken(user);
+        const newRefreshToken = generateRefreshToken(user);
+
+        user.refreshToken = newRefreshToken;
+        await user.save();
+
+        res.cookie("refreshToken", newRefreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        });
+
+        res.status(200).json({
+        success: true,
+        accessToken,
+        });
+    }catch(err){
+        res.status(500).json({success:false,message:err.message});
+    }
+}
+
+const logout = async (req, res) => {
+    try{
+        const token = req.cookies.refreshToken;
+        if(token){
+            try{
+                const decoded = jwt.verify(token, process.env.REFRESH_SECRET);
+                // Only clear it if it still matches - avoids wiping out a
+                // newer token if it was already rotated by a /refresh call
+                // that landed just before this request.
+                await User.updateOne(
+                    {_id: decoded.id, refreshToken: token},
+                    {refreshToken: null}
+                );
+            }catch(err){
+                // token already invalid/expired - nothing to revoke in the DB
+            }
+        }
+
+        res.clearCookie("refreshToken", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        });
+
+        res.status(200).json({success:true, message:"Logged out successfully"});
+    }catch(err){
+        res.status(500).json({success:false,message:err.message});
+    }
+}
+
+export { login, register, refresh, logout};

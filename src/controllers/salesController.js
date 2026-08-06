@@ -39,3 +39,20 @@ export const fetchSales = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+export const createSales = async (req, res) => {
+  try {
+    const sale = await Sales.create({
+      ...req.body,
+      createdAt: req.body.createdAt || new Date(),
+    });
+    res.status(201).json({ success: true, data: sale });
+  } catch (err) {
+    if (err.code === 11000) {
+      return res
+        .status(409)
+        .json({ success: false, message: "orderId already exists" });
+    }
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
